@@ -1,0 +1,12 @@
+
+This directory contains placeholder files that should be replaced with actual sound files:
+
+- rain.mp3       (5+ minutes, looping ambient sound)
+- ocean.mp3      (5+ minutes, looping ambient sound)
+- fireplace.mp3  (5+ minutes, looping ambient sound) 
+- forest.mp3     (5+ minutes, looping ambient sound)
+- water-drop.mp3 (1 second max, interactive sound)
+- inhale.mp3     (1 second max, breathing sound)
+- exhale.mp3     (1 second max, breathing sound)
+
+Please ensure all required files are placed directly in this folder.

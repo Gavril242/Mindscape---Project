@@ -1,0 +1,11 @@
+
+The following sound files should be placed in this directory:
+- rain.mp3
+- ocean.mp3
+- fireplace.mp3
+- forest.mp3
+- water-drop.mp3
+- inhale.mp3
+- exhale.mp3
+
+You'll need to source these audio files and place them in the /public/sounds directory for the audio features to work properly.
