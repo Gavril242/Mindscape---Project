@@ -42,6 +42,7 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement;
 
+    // Remove all theme classes first
     root.classList.remove("light", "dark");
     
     if (theme === "system") {
@@ -51,18 +52,23 @@ export function ThemeProvider({
         : "light";
       
       root.classList.add(systemTheme);
-      return;
+    } else {
+      root.classList.add(theme);
     }
-
-    root.classList.add(theme);
   }, [theme]);
   
   useEffect(() => {
     const root = window.document.documentElement;
+    
+    // Remove all color theme classes
     root.classList.remove("theme-green", "theme-blue", "theme-purple", "theme-orange", "theme-teal");
+    
+    // Add the selected color theme if it's not the default green
     if (colorTheme !== "green") {
       root.classList.add(`theme-${colorTheme}`);
     }
+    
+    // Store in localStorage
     localStorage.setItem("ui-color-theme", colorTheme);
   }, [colorTheme]);
 

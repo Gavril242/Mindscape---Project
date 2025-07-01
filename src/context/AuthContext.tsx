@@ -7,6 +7,7 @@ type AuthContextType = {
   session: Session | null;
   user: User | null;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   loading: boolean;
 };
 
@@ -43,8 +44,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const deleteAccount = async () => {
+    if (!user) return;
+    
+    try {
+      // Call the delete user data edge function
+      const { error } = await supabase.functions.invoke('delete-user-account', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      // Sign out after successful deletion
+      await signOut();
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ session, user, signOut, loading }}>
+    <AuthContext.Provider value={{ session, user, signOut, deleteAccount, loading }}>
       {children}
     </AuthContext.Provider>
   );

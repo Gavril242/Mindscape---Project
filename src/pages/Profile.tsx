@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useMood } from "@/context/MoodContext";
@@ -14,35 +15,33 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AvatarUpload from "@/components/AvatarUpload";
-import { Smile, Cloud, Frown, AlertCircle } from "lucide-react";
+import { Smile, Cloud, Frown, AlertCircle, Trash2, UserX } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 import DOMPurify from "dompurify";
-
-// Define the NotificationPreferences type
-interface NotificationPreferences {
-  daily_reminder: boolean;
-  weekly_report: boolean;
-  mood_suggestions?: boolean;
-}
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Profile = () => {
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [theme, setTheme] = useState("system");
-  const [reminderTime, setReminderTime] = useState("09:00");
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   
-  const { user } = useAuth();
+  const { user, deleteAccount } = useAuth();
   const { mood, setMood } = useMood();
-  
-  // Update the type for notificationPreferences
-  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>({
-    daily_reminder: true,
-    weekly_report: true,
-    mood_suggestions: false
-  });
+  const { theme, setTheme } = useTheme();
   
   const fetchProfileData = async () => {
     if (!user) return;
@@ -68,53 +67,9 @@ const Profile = () => {
       setLoading(false);
     }
   };
-  
-  const fetchSettings = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-        
-      if (error) throw error;
-      
-      if (data) {
-        if (data.theme) setTheme(data.theme);
-        if (data.reminder_time) setReminderTime(data.reminder_time);
-        
-        // Handle notification preferences with proper type conversion
-        if (data.notification_preferences) {
-          try {
-            // Safely parse/cast the notification preferences
-            const preferences = data.notification_preferences as any;
-            setNotificationPreferences({
-              daily_reminder: preferences.daily_reminder ?? true,
-              weekly_report: preferences.weekly_report ?? true,
-              mood_suggestions: preferences.mood_suggestions ?? false
-            });
-          } catch (e) {
-            console.error("Error parsing notification preferences:", e);
-            // Set default values if parsing fails
-            setNotificationPreferences({
-              daily_reminder: true,
-              weekly_report: true,
-              mood_suggestions: false
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-      toast('Error loading your settings');
-    }
-  };
 
   useEffect(() => {
     fetchProfileData();
-    fetchSettings();
   }, [user]);
 
   const updateProfile = async () => {
@@ -138,30 +93,41 @@ const Profile = () => {
       setLoading(false);
     }
   };
-  
-  const updateSettings = async () => {
+
+  const deleteFullName = async () => {
     if (!user) return;
-    
+
     try {
-      setLoading(true);
+      setDeleteLoading(true);
       
-      const { error } = await supabase
-        .from('user_settings')
-        .upsert({
-          user_id: user.id,
-          theme: theme,
-          reminder_time: reminderTime,
-          notification_preferences: notificationPreferences as any,
-        }, { onConflict: 'user_id' });
-        
+      const { error } = await supabase.functions.invoke('delete-user-data', {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
       if (error) throw error;
-      
-      toast("Settings updated successfully!");
+
+      setFullName("");
+      toast("Full name deleted successfully!");
     } catch (error) {
-      console.error("Error updating settings:", error);
-      toast('Error updating settings.');
+      console.error("Error deleting full name:", error);
+      toast('Error deleting full name.');
     } finally {
-      setLoading(false);
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      setDeleteAccountLoading(true);
+      await deleteAccount();
+      toast("Account deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast('Error deleting account. Please try again.');
+    } finally {
+      setDeleteAccountLoading(false);
     }
   };
 
@@ -195,7 +161,39 @@ const Profile = () => {
             
             <div className="space-y-4 flex-1">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="name">Full Name</Label>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Name
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Full Name</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete your full name from our database. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={deleteFullName}
+                          disabled={deleteLoading}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          {deleteLoading ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
                 <Input
                   id="name"
                   value={fullName}
@@ -289,85 +287,56 @@ const Profile = () => {
               </SelectContent>
             </Select>
           </div>
-          
-          <div className="flex items-center justify-between rounded-md border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label htmlFor="moodSuggestions">Mood Suggestions</Label>
-              <p className="text-sm text-muted-foreground">
-                Receive suggestions to update your mood.
-              </p>
-            </div>
-            <Switch
-              id="moodSuggestions"
-              checked={notificationPreferences.mood_suggestions ?? false}
-              onCheckedChange={(checked) =>
-                setNotificationPreferences({
-                  ...notificationPreferences,
-                  mood_suggestions: checked,
-                })
-              }
-            />
-          </div>
         </CardContent>
       </Card>
-      
-      <Card>
+
+      <Card className="border-red-200 dark:border-red-800">
         <CardHeader>
-          <CardTitle>Notifications</CardTitle>
-          <CardDescription>Manage your notification preferences.</CardDescription>
+          <CardTitle className="text-red-600 dark:text-red-400">Danger Zone</CardTitle>
+          <CardDescription>
+            Permanently delete your account and all associated data. This action cannot be undone.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="reminderTime">Daily Reminder Time</Label>
-            <Input
-              type="time"
-              id="reminderTime"
-              value={reminderTime}
-              onChange={(e) => setReminderTime(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-md border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label htmlFor="daily">Daily Reminder</Label>
-              <p className="text-sm text-muted-foreground">
-                Receive a daily notification.
-              </p>
-            </div>
-            <Switch
-              id="daily"
-              checked={notificationPreferences.daily_reminder}
-              onCheckedChange={(checked) =>
-                setNotificationPreferences({
-                  ...notificationPreferences,
-                  daily_reminder: checked,
-                })
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-md border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label htmlFor="weekly">Weekly Report</Label>
-              <p className="text-sm text-muted-foreground">
-                Get a summary of your progress every week.
-              </p>
-            </div>
-            <Switch
-              id="weekly"
-              checked={notificationPreferences.weekly_report}
-              onCheckedChange={(checked) =>
-                setNotificationPreferences({
-                  ...notificationPreferences,
-                  weekly_report: checked,
-                })
-              }
-            />
-          </div>
+        <CardContent>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="destructive" 
+                className="w-full"
+                disabled={deleteAccountLoading}
+              >
+                <UserX className="h-4 w-4 mr-2" />
+                {deleteAccountLoading ? "Deleting Account..." : "Delete My Account"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Account</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete your entire account and all associated data including:
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Your profile information</li>
+                    <li>All chat history</li>
+                    <li>Settings and preferences</li>
+                    <li>Statistics and progress data</li>
+                  </ul>
+                  <br />
+                  <strong>This action cannot be undone.</strong>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  disabled={deleteAccountLoading}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {deleteAccountLoading ? "Deleting..." : "Yes, Delete My Account"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
-        <CardFooter>
-          <Button onClick={updateSettings} disabled={loading}>
-            {loading ? "Updating..." : "Update Settings"}
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   );

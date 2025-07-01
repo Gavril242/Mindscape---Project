@@ -25,6 +25,7 @@ import Minigames from "./pages/Minigames";
 import MindfulMatch from "./pages/MindfulMatch";
 import MindfulLabyrinth from "./pages/MindfulLabyrinth";
 import LoadingScreen from "./components/LoadingScreen";
+import { TimerProvider } from "./context/TimerContext";
 
 const queryClient = new QueryClient();
 
@@ -85,12 +86,14 @@ const App = () => (
         <AuthProvider>
           <MoodProvider>
             <SoundProvider>
+               <TimerProvider>   
               <Toaster />
               <Sonner />
               <StardustBackground />
               <BrowserRouter>
                 <AppRoutes />
               </BrowserRouter>
+               </TimerProvider>
             </SoundProvider>
           </MoodProvider>
         </AuthProvider>

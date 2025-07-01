@@ -27,12 +27,6 @@ interface ActiveMeditationSessionProps {
   getYoutubeId: (url: string) => string;
 }
 
-/**
- * Displays the in‑progress meditation session.
- * If a YouTube link is supplied we embed the actual YouTube player (Iframe API)
- * and optionally render the AudioVisualizer below it. The player’s metadata is
- * used to sync the meditation timer automatically via `onVideoDurationChange`.
- */
 const ActiveMeditationSession: React.FC<ActiveMeditationSessionProps> = ({
   title,
   duration,
@@ -49,29 +43,24 @@ const ActiveMeditationSession: React.FC<ActiveMeditationSessionProps> = ({
   const youtubeId = youtubeLink ? getYoutubeId(youtubeLink) : "";
   const playerRef = useRef<YT.Player | null>(null);
 
-  // Pause the video when the countdown finishes.
+  /* Pause visible player when countdown finishes */
   useEffect(() => {
     if (timeRemaining === 0 && playerRef.current) {
       try {
         playerRef.current.pauseVideo();
       } catch {
-        /* ignored */
+        /* noop */
       }
     }
   }, [timeRemaining]);
 
-  // YouTube Iframe API options
+  /* YouTube player options */
   const opts: YouTubeProps["opts"] = {
     width: "100%",
     height: "100%",
-    playerVars: {
-      autoplay: 1,
-      modestbranding: 1,
-      rel: 0,
-    },
+    playerVars: { autoplay: 1, modestbranding: 1, rel: 0 },
   };
 
-  // Fires once metadata is available → report clip length to parent
   const handleReady: YouTubeProps["onReady"] = (e) => {
     playerRef.current = e.target;
     const dur = e.target.getDuration();
@@ -86,18 +75,19 @@ const ActiveMeditationSession: React.FC<ActiveMeditationSessionProps> = ({
           Focus on your breath and find your center
         </CardDescription>
       </CardHeader>
+
       <CardContent className="flex flex-col items-center">
-        {/* Remaining‑time readout */}
+        {/* Countdown */}
         <div className="text-6xl font-bold mb-8">
           {formatTimeRemaining()}
         </div>
 
-        {/* ─────────────────────────────────────────────── YouTube Player */}
+        {/* Video or visualizer */}
         {youtubeId ? (
           <>
             <AspectRatio
               ratio={16 / 9}
-              className="w-full max-w-lg mb-4 rounded-lg overflow-hidden"
+              className="w-full max-w-lg mb-4 rounded-lg overflow-hidden mx-auto"
             >
               <YouTube
                 videoId={youtubeId}
@@ -109,8 +99,8 @@ const ActiveMeditationSession: React.FC<ActiveMeditationSessionProps> = ({
               />
             </AspectRatio>
 
-            {/* Optional audio visualizer (kept for ambience) */}
-            <div className="w-full max-w-lg mb-8">
+            {/* Audio-only visualizer (optional) */}
+            <div className="w-full max-w-lg mb-8 mx-auto">
               <AudioVisualizer
                 youtubeId={youtubeId}
                 onDurationChange={onVideoDurationChange}
@@ -119,7 +109,7 @@ const ActiveMeditationSession: React.FC<ActiveMeditationSessionProps> = ({
             </div>
           </>
         ) : (
-          /* Fallback graphic when no YouTube link provided */
+          /* Fallback graphic */
           <div className="flex items-center justify-center w-full max-w-lg mb-8 h-[300px] bg-muted/30 rounded-lg">
             <div className="text-center p-6">
               <div className="mb-4 text-4xl">
@@ -139,7 +129,7 @@ const ActiveMeditationSession: React.FC<ActiveMeditationSessionProps> = ({
           </div>
         )}
 
-        {/* Session info & notes */}
+        {/* Notes */}
         <div className="space-y-4 w-full max-w-lg">
           <div className="bg-muted/30 p-4 rounded-lg">
             <h3 className="font-medium">{title}</h3>
@@ -156,6 +146,7 @@ const ActiveMeditationSession: React.FC<ActiveMeditationSessionProps> = ({
           />
         </div>
       </CardContent>
+
       <CardFooter className="flex justify-center">
         <Button
           variant="destructive"

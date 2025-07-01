@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { useSound } from "@/components/SoundContext";
-import MeditationOptions from "./MeditationOptions";
-import MeditationSessionControls from "./MeditationSessionControls";
-import ActiveMeditationSession from "./ActiveMeditationSession";
-import MeditationSessionHistory from "./MeditationSessionHistory";
+
+import MeditationOptions          from "./MeditationOptions";
+import MeditationSessionControls  from "./MeditationSessionControls";
+import ActiveMeditationSession    from "./ActiveMeditationSession";
+import MeditationSessionHistory   from "./MeditationSessionHistory";
 
 interface MeditationSession {
   id: string;
@@ -18,168 +18,160 @@ interface MeditationSession {
   created_at: string;
 }
 
+/* ── links for each preset ───────────────────────────────────────────── */
+const LINK_MAP: Record<string, { url: string; mins: number }> = {
+  "Mindful Morning":    { url: "https://www.youtube.com/watch?v=OccjH_2ddQc", mins: 10 },
+  "Deep Relaxation":    { url: "https://www.youtube.com/watch?v=aIIEI33EUqI", mins: 15 },
+  "Stress Relief":      { url: "https://www.youtube.com/watch?v=zYzFUBMJO9E", mins: 8  },
+  "Bedtime Relaxation": { url: "https://www.youtube.com/watch?v=TP2gb2fSYXY", mins: 12 },
+};
+
 const MeditationTab: React.FC = () => {
   const [isMeditating, setIsMeditating] = useState(false);
-  const [meditationYoutubeLink, setMeditationYoutubeLink] = useState('');
-  const [selectedMeditationTitle, setSelectedMeditationTitle] = useState('Mindful Morning');
-  const [selectedMeditationDuration, setSelectedMeditationDuration] = useState(10);
-  const [meditationNotes, setMeditationNotes] = useState('');
-  const [timeRemaining, setTimeRemaining] = useState(0);
+
+  /* selected preset defaults to “Mindful Morning” */
+  const [selectedMeditationTitle, setSelectedMeditationTitle] = useState<keyof typeof LINK_MAP>("Mindful Morning");
+  const [selectedMeditationDuration, setSelectedMeditationDuration] = useState<number>(LINK_MAP["Mindful Morning"].mins);
+  const [meditationYoutubeLink, setMeditationYoutubeLink] = useState<string>(LINK_MAP["Mindful Morning"].url);
+
+  const [meditationNotes, setMeditationNotes] = useState("");
+  const [timeRemaining, setTimeRemaining]   = useState(0);
+
   const [meditationSessions, setMeditationSessions] = useState<MeditationSession[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(false);
-  
-  const { user } = useAuth();
+  const [loadingSessions,   setLoadingSessions]     = useState(false);
+
+  const { user }         = useAuth();
   const { playWaterDrop } = useSound();
 
-  // Fetch meditation sessions
+  /* ── fetch recent sessions (unchanged) ─────────────────────────────── */
   useEffect(() => {
     if (!user) return;
-    
-    const fetchMeditationSessions = async () => {
+
+    const fetchSessions = async () => {
       try {
         setLoadingSessions(true);
         const { data, error } = await supabase
-          .from('meditation_sessions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          .from("meditation_sessions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
           .limit(10);
-        
+
         if (error) throw error;
-        
         setMeditationSessions(data || []);
-      } catch (error) {
-        console.error('Error fetching meditation sessions:', error);
-        toast('Failed to load meditation sessions');
+      } catch (err) {
+        console.error(err);
+        toast("Failed to load meditation sessions");
       } finally {
         setLoadingSessions(false);
       }
     };
-    
-    fetchMeditationSessions();
+
+    fetchSessions();
   }, [user]);
-  
-  // Start meditation timer
+
+  /* ── start meditation ─────────────────────────────────────────────── */
   const startMeditation = () => {
-    if (!selectedMeditationTitle || !selectedMeditationDuration) {
-      toast('Please select a meditation type and duration');
+    if (!selectedMeditationTitle) {
+      toast("Please select a meditation type");
       return;
     }
-    
     setIsMeditating(true);
     setTimeRemaining(selectedMeditationDuration * 60);
     playWaterDrop();
   };
-  
-  // Handle YouTube video duration change
+
+  /* ── sync video duration (only for custom links / iframe mode) ─────── */
   const handleVideoDurationChange = (duration: number) => {
-    if (duration && duration > 0) {
-      // Convert duration from seconds to minutes, round up
-      const durationMinutes = Math.ceil(duration / 60);
-      setSelectedMeditationDuration(durationMinutes);
+    if (duration > 0) {
+      setSelectedMeditationDuration(Math.ceil(duration / 60));
       setTimeRemaining(duration);
-      
-      toast(`YouTube meditation duration: ${durationMinutes} minutes`);
+      toast(`YouTube meditation duration: ${Math.ceil(duration / 60)} minutes`);
     }
   };
-  
-  // End meditation session
+
+  /* ── end / save session ────────────────────────────────────────────── */
   const endMeditation = async (completed = true) => {
     setIsMeditating(false);
     playWaterDrop();
-    
     if (!user) return;
-    
+
     try {
-      // Save session to database
-      const { error } = await supabase
-        .from('meditation_sessions')
-        .insert({
-          user_id: user.id,
-          session_type: selectedMeditationTitle,
-          duration: selectedMeditationDuration,
-          youtube_link: meditationYoutubeLink || null,
-          notes: meditationNotes || null,
-          completed: completed
-        });
-      
+      const { error } = await supabase.from("meditation_sessions").insert({
+        user_id: user.id,
+        session_type: selectedMeditationTitle,
+        duration: selectedMeditationDuration,
+        youtube_link: meditationYoutubeLink || null,
+        notes: meditationNotes || null,
+        completed,
+      });
       if (error) throw error;
-      
-      toast('Meditation session saved');
-      
-      // Refresh the sessions list
-      const { data: newSessions, error: fetchError } = await supabase
-        .from('meditation_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+
+      toast("Meditation session saved");
+
+      /* refresh */
+      const { data, error: fetchErr } = await supabase
+        .from("meditation_sessions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
         .limit(10);
-      
-      if (fetchError) throw fetchError;
-      
-      setMeditationSessions(newSessions || []);
-      
-      // Clear form fields
-      setMeditationYoutubeLink('');
-      setMeditationNotes('');
-      
-    } catch (error) {
-      console.error('Error saving meditation session:', error);
-      toast('Failed to save meditation session');
+
+      if (fetchErr) throw fetchErr;
+      setMeditationSessions(data || []);
+
+      /* clear notes */
+      setMeditationNotes("");
+    } catch (err) {
+      console.error(err);
+      toast("Failed to save session");
     }
   };
-  
-  // Countdown timer effect
+
+  /* ── countdown tick ────────────────────────────────────────────────── */
   useEffect(() => {
     if (!isMeditating || timeRemaining <= 0) return;
-    
-    const timer = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
+    const id = setInterval(() => {
+      setTimeRemaining((t) => {
+        if (t <= 1) {
+          clearInterval(id);
           endMeditation(true);
           return 0;
         }
-        return prev - 1;
+        return t - 1;
       });
     }, 1000);
-    
-    return () => clearInterval(timer);
+    return () => clearInterval(id);
   }, [isMeditating, timeRemaining]);
-  
-  // Format time remaining
-  const formatTimeRemaining = () => {
-    const minutes = Math.floor(timeRemaining / 60);
-    const seconds = timeRemaining % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+  /* ── helpers ───────────────────────────────────────────────────────── */
+  const formatTime = () => {
+    const m = Math.floor(timeRemaining / 60);
+    const s = String(timeRemaining % 60).padStart(2, "0");
+    return `${m}:${s}`;
   };
 
-  // Extract YouTube ID
-  const getYoutubeId = (url: string): string => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : '';
+  const getYoutubeId = (url: string) => {
+    const m = url.match(/(?:youtu\.be\/|v\/|embed\/|watch\?v=|&v=)([^#&?]{11})/);
+    return m ? m[1] : "";
   };
 
-  const handleSelectMeditation = (title: string, duration: number) => {
-    setSelectedMeditationTitle(title);
-    setSelectedMeditationDuration(duration);
+  /* when user picks a meditation from MeditationOptions */
+  const handleSelectMeditation = (title: string, _duration: number) => {
+    if (LINK_MAP[title]) {
+      setSelectedMeditationTitle(title as keyof typeof LINK_MAP);
+      setSelectedMeditationDuration(LINK_MAP[title].mins);
+      setMeditationYoutubeLink(LINK_MAP[title].url);
+    } else {
+      setSelectedMeditationTitle(title as any);
+      setSelectedMeditationDuration(_duration);
+      setMeditationYoutubeLink("");
+    }
   };
 
-  // Handle session completion
-  const handleSessionComplete = () => {
-    endMeditation(true);
-  };
-
-  // Handle youtube link change
-  const handleYoutubeLinkChange = (link: string) => {
-    setMeditationYoutubeLink(link);
-  };
-
-  // Handle notes change
-  const handleNotesChange = (notes: string) => {
-    setMeditationNotes(notes);
-  };
+  /* text-box YouTube link change (custom videos) */
+  const handleYoutubeLinkChange = (url: string) => setMeditationYoutubeLink(url);
+  const handleNotesChange       = (n: string) => setMeditationNotes(n);
 
   return (
     <div className="space-y-4">
@@ -191,15 +183,15 @@ const MeditationTab: React.FC = () => {
           youtubeLink={meditationYoutubeLink}
           notes={meditationNotes}
           onNotesChange={handleNotesChange}
-          onComplete={handleSessionComplete}
+          onComplete={() => endMeditation(true)}
           onEnd={endMeditation}
           onVideoDurationChange={handleVideoDurationChange}
-          formatTimeRemaining={formatTimeRemaining}
+          formatTimeRemaining={formatTime}
           getYoutubeId={getYoutubeId}
         />
       ) : (
         <div className="space-y-6">
-          <MeditationOptions 
+          <MeditationOptions
             selectedTitle={selectedMeditationTitle}
             onSelectMeditation={handleSelectMeditation}
           />
@@ -210,8 +202,8 @@ const MeditationTab: React.FC = () => {
           />
         </div>
       )}
-      
-      <MeditationSessionHistory 
+
+      <MeditationSessionHistory
         sessions={meditationSessions}
         isLoading={loadingSessions}
       />

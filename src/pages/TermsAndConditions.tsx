@@ -68,13 +68,15 @@ const TermsAndConditions = () => {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3">7. Emergency Contacts</h2>
+          <h2 className="text-xl font-semibold mb-3">7. Emergency Contacts (Romania)</h2>
           <div className="bg-red-50 dark:bg-red-950/30 p-4 rounded-lg">
             <p className="font-semibold text-red-700 dark:text-red-300 mb-2">If you are in crisis:</p>
             <ul className="space-y-1 text-red-600 dark:text-red-400">
-              <li>🚨 Emergency: 911 (US) or your local emergency number</li>
-              <li>📞 National Suicide Prevention Lifeline: 988 (US)</li>
-              <li>💬 Crisis Text Line: Text HOME to 741741</li>
+              <li>🚨 Emergency: 112 (European Emergency Number)</li>
+              <li>📞 Telefonul Speranței: 116 123 (24/7 emotional support)</li>
+              <li>💬 Suflet.ro: 0800 801 200 (psychological support)</li>
+              <li>🏥 Salvamari: 0800 801 200 (crisis intervention)</li>
+              <li>💙 Alianța Română pentru Prevenirea Sinuciderii: 031.433.82.84</li>
             </ul>
           </div>
         </section>
